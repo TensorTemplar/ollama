@@ -651,12 +651,17 @@ type ImageData struct {
 }
 
 type completion struct {
-	Content                 string                      `json:"content"`
-	CompletionProbabilities []api.CompletionProbability `json:"completion_probabilities,omitempty"`
-	Model                   string                      `json:"model"`
-	Prompt                  string                      `json:"prompt"`
-	Stop                    bool                        `json:"stop"`
-	StoppedLimit            bool                        `json:"stopped_limit"`
+	Content string `json:"content"`
+	CompletionProbabilities []struct {
+		Content string `json:"content"`
+		Probs   []struct {
+			Prob   float64 `json:"prob"`
+			TokStr string  `json:"tok_str"`
+		} `json:"probs"`
+	} `json:"completion_probabilities,omitempty"`
+	Model   string `json:"model"`
+	Prompt  string `json:"prompt"`
+	Stop    bool   `json:"stop"`
 
 	Timings struct {
 		PredictedN  int     `json:"predicted_n"`
@@ -674,14 +679,19 @@ type CompletionRequest struct {
 }
 
 type CompletionResponse struct {
-	Content                 string
-	CompletionProbabilities []api.CompletionProbability
-	DoneReason              string
-	Done                    bool
-	PromptEvalCount         int
-	PromptEvalDuration      time.Duration
-	EvalCount               int
-	EvalDuration            time.Duration
+	Content            string
+	CompletionProbabilities []struct {
+		Content string `json:"content"`
+		Probs   []struct {
+			Prob   float64 `json:"prob"`
+			TokStr string  `json:"tok_str"`
+		} `json:"probs"`
+	} `json:"completion_probabilities,omitempty"`
+	Done               bool
+	PromptEvalCount    int
+	PromptEvalDuration time.Duration
+	EvalCount          int
+	EvalDuration       time.Duration
 }
 
 func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn func(CompletionResponse)) error {
@@ -702,7 +712,7 @@ func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn fu
 		"stream":            true,
 		"n_predict":         req.Options.NumPredict,
 		"n_keep":            req.Options.NumKeep,
-		"n_probs":           req.Options.NProbs,
+		"n_probs": 			 req.Options.NProbs,
 		"main_gpu":          req.Options.MainGPU,
 		"temperature":       req.Options.Temperature,
 		"top_k":             req.Options.TopK,
@@ -802,8 +812,58 @@ func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn fu
 			case strings.TrimSpace(c.Content) == lastToken:
 				tokenRepeat++
 			default:
-				lastToken = strings.TrimSpace(c.Content)
-				tokenRepeat = 0
+				line := scanner.Bytes()
+				if len(line) == 0 {
+					continue
+				}
+
+				// try again on slot unavailable
+				if bytes.Contains(line, []byte("slot unavailable")) {
+					retryNeeded = true
+					break
+				}
+
+				evt, ok := bytes.CutPrefix(line, []byte("data: "))
+				if !ok {
+					return fmt.Errorf("error parsing llm response stream: %s", line)
+				}
+
+				var c completion
+				if err := json.Unmarshal(evt, &c); err != nil {
+					return fmt.Errorf("error unmarshaling llm prediction response: %v", err)
+				}
+
+				switch {
+				case strings.TrimSpace(c.Content) == lastToken:
+					tokenRepeat++
+				default:
+					lastToken = strings.TrimSpace(c.Content)
+					tokenRepeat = 0
+				}
+
+				// 30 picked as an arbitrary max token repeat limit, modify as needed
+				if tokenRepeat > 30 {
+					slog.Debug("prediction aborted, token repeat limit reached")
+					return ctx.Err()
+				}
+
+				if c.Content != "" {
+					fn(CompletionResponse{
+						Content: c.Content,
+						CompletionProbabilities: c.CompletionProbabilities,
+					})
+				}
+
+				if c.Stop {
+					fn(CompletionResponse{
+						Done:               true,
+						PromptEvalCount:    c.Timings.PromptN,
+						PromptEvalDuration: parseDurationMs(c.Timings.PromptMS),
+						EvalCount:          c.Timings.PredictedN,
+						EvalDuration:       parseDurationMs(c.Timings.PredictedMS),
+					})
+					return nil
+				}
 			}
 
 			// 30 picked as an arbitrary max token repeat limit, modify as needed
