@@ -651,17 +651,12 @@ type ImageData struct {
 }
 
 type completion struct {
-	Content string `json:"content"`
-	CompletionProbabilities []struct {
-		Content string `json:"content"`
-		Probs   []struct {
-			Prob   float64 `json:"prob"`
-			TokStr string  `json:"tok_str"`
-		} `json:"probs"`
-	} `json:"completion_probabilities,omitempty"`
-	Model   string `json:"model"`
-	Prompt  string `json:"prompt"`
-	Stop    bool   `json:"stop"`
+	Content                 string                      `json:"content"`
+	CompletionProbabilities []api.CompletionProbability `json:"completion_probabilities,omitempty"`
+	Model                   string                      `json:"model"`
+	Prompt                  string                      `json:"prompt"`
+	Stop                    bool                        `json:"stop"`
+	StoppedLimit            bool                        `json:"stopped_limit"`
 
 	Timings struct {
 		PredictedN  int     `json:"predicted_n"`
@@ -679,19 +674,14 @@ type CompletionRequest struct {
 }
 
 type CompletionResponse struct {
-	Content            string
-	CompletionProbabilities []struct {
-		Content string `json:"content"`
-		Probs   []struct {
-			Prob   float64 `json:"prob"`
-			TokStr string  `json:"tok_str"`
-		} `json:"probs"`
-	} `json:"completion_probabilities,omitempty"`
-	Done               bool
-	PromptEvalCount    int
-	PromptEvalDuration time.Duration
-	EvalCount          int
-	EvalDuration       time.Duration
+	Content                 string
+	CompletionProbabilities []api.CompletionProbability
+	DoneReason              string
+	Done                    bool
+	PromptEvalCount         int
+	PromptEvalDuration      time.Duration
+	EvalCount               int
+	EvalDuration            time.Duration
 }
 
 func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn func(CompletionResponse)) error {

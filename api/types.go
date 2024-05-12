@@ -110,7 +110,6 @@ type Message struct {
 	Images  []ImageData `json:"images,omitempty"`
 }
 
-// CompletionProbability is returned by llama.cpp if n_probs is set.
 type CompletionProbability struct {
 	Content string            `json:"content"`
 	Probs   []CompletionProbs `json:"probs"`
@@ -132,13 +131,7 @@ type ChatResponse struct {
 
 	Done bool `json:"done"`
 
-	CompletionProbabilities []struct {
-		Content string `json:"content"`
-		Probs   []struct {
-			Prob   float64 `json:"prob"`
-			TokStr string  `json:"tok_str"`
-		} `json:"probs"`
-	} `json:"completion_probabilities,omitempty"`
+	CompletionProbabilities []CompletionProbability `json:"completion_probabilities,omitempty"`
 
 	Metrics
 }
@@ -161,7 +154,7 @@ type Options struct {
 	NumKeep          int      `json:"num_keep,omitempty"`
 	Seed             int      `json:"seed,omitempty"`
 	NumPredict       int      `json:"num_predict,omitempty"`
-	NProbs 		     int      `json:"n_probs,omitempty"`
+	NProbs           int      `json:"n_probs,omitempty"`
 	TopK             int      `json:"top_k,omitempty"`
 	TopP             float32  `json:"top_p,omitempty"`
 	TFSZ             float32  `json:"tfs_z,omitempty"`
@@ -390,13 +383,9 @@ type GenerateResponse struct {
 	// Context is an encoding of the conversation used in this response; this
 	// can be sent in the next request to keep a conversational memory.
 	Context []int `json:"context,omitempty"`
-	CompletionProbabilities []struct {
-		Content string `json:"content"`
-		Probs   []struct {
-			Prob   float64 `json:"prob"`
-			TokStr string  `json:"tok_str"`
-		} `json:"probs"`
-	} `json:"completion_probabilities,omitempty"`
+
+	// Optional completion probabilities (chance + completion)
+	CompletionProbabilities []CompletionProbability `json:"completion_probabilities,omitempty"`
 
 	// Optional completion probabilities (chance + completion)
 	CompletionProbabilities []CompletionProbability `json:"completion_probabilities,omitempty"`
@@ -546,7 +535,7 @@ func DefaultOptions() Options {
 		// set a minimal num_keep to avoid issues on context shifts
 		NumKeep:          4,
 		Temperature:      0.8,
-		NProbs: 		  0,
+		NProbs:           0,
 		TopK:             40,
 		TopP:             0.9,
 		TFSZ:             1.0,
