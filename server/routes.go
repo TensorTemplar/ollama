@@ -1087,7 +1087,7 @@ func Serve(ln net.Listener) error {
 		return err
 	}
 	<-ctx.Done()
-	return err
+	return nil
 }
 
 func waitForStream(c *gin.Context, ch chan interface{}) {
