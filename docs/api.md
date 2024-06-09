@@ -1045,11 +1045,10 @@ GET /api/ps
 
 List models that are currently loaded into memory.
 
-\* If a model is loaded completely into system memory, `size_vram` is omitted from the response.
-
 #### Examples
 
 ### Request
+
 ```shell
 curl http://localhost:11434/api/ps
 ```
