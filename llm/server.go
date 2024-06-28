@@ -807,12 +807,6 @@ func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn fu
 					continue
 				}
 
-				// try again on slot unavailable
-				if bytes.Contains(line, []byte("slot unavailable")) {
-					retryNeeded = true
-					break
-				}
-
 				evt, ok := bytes.CutPrefix(line, []byte("data: "))
 				if !ok {
 					return fmt.Errorf("error parsing llm response stream: %s", line)

@@ -388,8 +388,6 @@ type GenerateResponse struct {
 	CompletionProbabilities []CompletionProbability `json:"completion_probabilities,omitempty"`
 
 	// Optional completion probabilities (chance + completion)
-	CompletionProbabilities []CompletionProbability `json:"completion_probabilities,omitempty"`
-
 	Metrics
 }
 
